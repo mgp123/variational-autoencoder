@@ -1,0 +1,82 @@
+import torch
+import torchvision
+from tqdm import tqdm
+
+from data_loader import get_data_loaders, batch_size
+from model import Encoder, Decoder
+from torch.utils.tensorboard import SummaryWriter
+
+if __name__ == "__main__":
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    data_loader_train, data_loader_test = get_data_loaders()
+
+    encoder = Encoder()
+    encoder = encoder.to(device)
+    decoder = Decoder()
+    decoder = decoder.to(device)
+
+    # 0.01 seems to be a good value for lr
+    lr = 0.011
+    encoder_optimizer = torch.optim.Adagrad(encoder.parameters(), lr=lr)
+    decoder_optimizer = torch.optim.Adagrad(decoder.parameters(), lr=lr)
+
+    mse = torch.nn.MSELoss()
+    epochs = 5
+    epochs_per_save = 5
+
+    writer = SummaryWriter()
+    training_batch = 0
+    samples_per_write = 6400
+    
+    for epoch in tqdm(range(epochs)):
+        for dataset_samples, _ in tqdm(data_loader_train, leave=False):
+
+            dataset_samples = dataset_samples.to(device)
+            latent_samples, mu, sigma = encoder(dataset_samples)
+            generator_samples = decoder(latent_samples)
+
+            square_error_term = mse(generator_samples, dataset_samples) / (0.5*decoder.sigma ** 2)
+            # we ignore the constants during trainning so as to (maybe) increase performance
+            kl_div_term = torch.sum(mu**2) + torch.sum(sigma) - torch.sum(torch.log(sigma))
+            kl_div_term *= 0.5/batch_size
+            loss = square_error_term + kl_div_term
+
+            loss.backward()
+            encoder_optimizer.step()
+            decoder_optimizer.step()
+            encoder_optimizer.zero_grad()
+            decoder_optimizer.zero_grad()
+
+            training_batch += 1
+
+            if training_batch*batch_size % samples_per_write == 0:
+                # we do add the constants when writting to tensorboard
+                kl_div_term += -decoder.get_latent_size()*0.5
+                square_error_term += - torch.log(torch.tensor(2.5*decoder.sigma))
+                loss = square_error_term + kl_div_term
+
+                writer.add_scalar("loss/samples", loss.item(), training_batch*batch_size)
+                writer.add_scalar("square_error_term/samples", square_error_term.item(), training_batch*batch_size)
+                writer.add_scalar("kl_div_term/samples", kl_div_term.item(), training_batch*batch_size)
+
+
+
+        if epoch % epochs_per_save == epochs_per_save - 1:
+
+            encoder.save_to_file()
+            decoder.save_to_file()
+
+            with torch.no_grad():
+                img = decoder.sample(4)
+                img_grid = torchvision.utils.make_grid(img, nrow=2)
+                writer.add_image("generator sample epoch " + str(epoch + 1), img_grid)
+
+                for test_samples, _ in data_loader_test:
+                    test_samples = test_samples.to(device)
+                    reconstructed_samples = decoder(encoder(test_samples)[1])
+                    img = torch.cat((test_samples, reconstructed_samples), 0)
+                    img_grid = torchvision.utils.make_grid(img, nrow=4)
+                    writer.add_image("reconstructed sample epoch " + str(epoch + 1), img_grid)
+
+    writer.flush()
+    writer.close()
