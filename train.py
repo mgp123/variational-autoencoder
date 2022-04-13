@@ -15,13 +15,20 @@ if __name__ == "__main__":
     decoder = Decoder()
     decoder = decoder.to(device)
 
-    # 0.01 seems to be a good value for lr
-    lr = 0.011
-    encoder_optimizer = torch.optim.Adagrad(encoder.parameters(), lr=lr)
-    decoder_optimizer = torch.optim.Adagrad(decoder.parameters(), lr=lr)
+    # 3e-4 seems to be a good value for lr
+    lr = 3e-4
+
+
+    normalize_reconstruction_weight = 0.9999
+    normalize_kl_weight = 1- normalize_reconstruction_weight
+
+    # encoder.sigma = ((1/normalize_kl_weight -1)/2)**0.5
+
+    encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=lr)
+    decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=lr)
 
     mse = torch.nn.MSELoss()
-    epochs = 5
+    epochs = 40
     epochs_per_save = 5
 
     writer = SummaryWriter()
@@ -29,17 +36,22 @@ if __name__ == "__main__":
     samples_per_write = 6400
     
     for epoch in tqdm(range(epochs)):
+
+        # kl warm up
+        # normalize_reconstruction_weight = max(normalize_reconstruction_weight-0.004, 0.98)
+        # normalize_kl_weight = 1- normalize_reconstruction_weight
+
         for dataset_samples, _ in tqdm(data_loader_train, leave=False):
 
             dataset_samples = dataset_samples.to(device)
             latent_samples, mu, sigma = encoder(dataset_samples)
             generator_samples = decoder(latent_samples)
 
-            square_error_term = mse(generator_samples, dataset_samples) / (0.5*decoder.sigma ** 2)
+            square_error_term = mse(generator_samples, dataset_samples) * normalize_reconstruction_weight
             # we ignore the constants during trainning so as to (maybe) increase performance
             kl_div_term = torch.sum(mu**2) + torch.sum(sigma) - torch.sum(torch.log(sigma))
-            kl_div_term *= 0.5/batch_size
-            loss = square_error_term + kl_div_term
+            kl_div_term *= 1/batch_size
+            loss = normalize_reconstruction_weight*square_error_term + normalize_kl_weight*kl_div_term
 
             loss.backward()
             encoder_optimizer.step()
@@ -51,9 +63,9 @@ if __name__ == "__main__":
 
             if training_batch*batch_size % samples_per_write == 0:
                 # we do add the constants when writting to tensorboard
-                kl_div_term += -decoder.get_latent_size()*0.5
-                square_error_term += - torch.log(torch.tensor(2.5*decoder.sigma))
-                loss = square_error_term + kl_div_term
+                # kl_div_term += -decoder.get_latent_size()*0.5
+                # square_error_term += - torch.log(torch.tensor(2.5*decoder.sigma))
+                # loss = square_error_term + kl_div_term
 
                 writer.add_scalar("loss/samples", loss.item(), training_batch*batch_size)
                 writer.add_scalar("square_error_term/samples", square_error_term.item(), training_batch*batch_size)
@@ -67,7 +79,7 @@ if __name__ == "__main__":
             decoder.save_to_file()
 
             with torch.no_grad():
-                img = decoder.sample(4)
+                img = decoder.sample(8)
                 img_grid = torchvision.utils.make_grid(img, nrow=2)
                 writer.add_image("generator sample epoch " + str(epoch + 1), img_grid)
 

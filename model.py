@@ -17,40 +17,57 @@ class Encoder(nn.Module):
                 in_channels=3,
                 out_channels=32,
                 kernel_size=(3, 3),
+                stride=2,
                 padding=1
             ),
+            nn.BatchNorm2d(32),
             nn.LeakyReLU(),
-            nn.MaxPool2d(2, stride=2),
             nn.Conv2d(
                 in_channels=32,
-                out_channels=16,
+                out_channels=64,
                 kernel_size=(3, 3),
+                stride=2,
                 padding=1
             ),
+            nn.BatchNorm2d(64),
             nn.LeakyReLU(),
-            nn.MaxPool2d(2, stride=2),
             nn.Conv2d(
-                in_channels=16,
-                out_channels=self.latent_size//128,
+                in_channels=64,
+                out_channels=64,
                 kernel_size=(3, 3),
+                stride=2,
                 padding=1
             ),
+            nn.BatchNorm2d(64),
             nn.LeakyReLU(),
-            nn.MaxPool2d(2, stride=2),
+            nn.Conv2d(
+                in_channels=64,
+                out_channels=64,
+                kernel_size=(3, 3),
+                stride=2,
+                padding=1
+            ),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(),
             torch.nn.Flatten(),
-            torch.nn.Linear(self.latent_size*2, self.latent_size*2),
 
         )
+
+        self.fc_mu = torch.nn.Linear(4096, self.latent_size)           
+        self.fc_sigma = torch.nn.Linear(4096, self.latent_size)           
+
 
         self.load_from_file()
 
     def forward(self, x):
-        encoded = self.model(x)
+        z = self.model(x)
 
-        latent_size = self.get_latent_size()
-        mu, sqrt_sigma = encoded[:, :latent_size], encoded[:, latent_size:]
+        mu = self.fc_mu(z)
+        sqrt_sigma =self.fc_sigma(z)
+
         sigma = sqrt_sigma*sqrt_sigma
         noise = torch.randn(mu.shape).to(device)
+
         return mu + noise * sigma, mu, sigma
 
     def get_latent_size(self):
@@ -72,38 +89,42 @@ class Decoder(nn.Module):
         self.latent_size = 1024
 
         # 0.05 seems to be a good value for sigma
-        self.sigma = 0.05
+        self.sigma = 0.02
 
         self.model = nn.Sequential(
-            torch.nn.Linear(self.latent_size, self.latent_size),
+            torch.nn.Linear(self.latent_size, 4096),
             nn.LeakyReLU(),
-            torch.nn.Unflatten(1, (self.latent_size//256, 16, 16)),
+            torch.nn.Unflatten(1, (64, 8, 8)),
+            nn.Upsample(scale_factor=2),
             nn.ConvTranspose2d(
-                in_channels=self.latent_size//(256),
+                in_channels=64,
+                out_channels=64,
+                kernel_size=(3, 3),
+                padding=1
+            ),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(),
+            nn.Upsample(scale_factor=2),
+            nn.ConvTranspose2d(
+                in_channels=64,
+                out_channels=64,
+                kernel_size=(3, 3),
+                padding=1
+            ),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(),
+            nn.Upsample(scale_factor=2),
+            nn.ConvTranspose2d(
+                in_channels=64,
                 out_channels=32,
                 kernel_size=(3, 3),
                 padding=1
             ),
+            nn.BatchNorm2d(32),
             nn.LeakyReLU(),
             nn.Upsample(scale_factor=2),
             nn.ConvTranspose2d(
                 in_channels=32,
-                out_channels=16,
-                kernel_size=(3, 3),
-                padding=1
-            ),
-            nn.LeakyReLU(),
-            nn.Upsample(scale_factor=2),
-            nn.ConvTranspose2d(
-                in_channels=16,
-                out_channels=8,
-                kernel_size=(3, 3),
-                padding=1
-            ),
-            nn.LeakyReLU(),
-            nn.Upsample(scale_factor=2),
-            nn.ConvTranspose2d(
-                in_channels=8,
                 out_channels=3,
                 kernel_size=(3, 3),
                 padding=1
@@ -131,3 +152,4 @@ class Decoder(nn.Module):
 
     def save_to_file(self):
         torch.save(self.state_dict(), self.weights_file)
+
