@@ -28,6 +28,7 @@ if __name__ == "__main__":
     decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=lr)
 
     mse = torch.nn.MSELoss()
+    # 200 epochs?
     epochs = 40
     epochs_per_save = 5
 
@@ -80,7 +81,7 @@ if __name__ == "__main__":
 
             with torch.no_grad():
                 img = decoder.sample(8)
-                img_grid = torchvision.utils.make_grid(img, nrow=2)
+                img_grid = torchvision.utils.make_grid(img, nrow=4)
                 writer.add_image("generator sample epoch " + str(epoch + 1), img_grid)
 
                 for test_samples, _ in data_loader_test:

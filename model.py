@@ -138,9 +138,9 @@ class Decoder(nn.Module):
         # y += noise * self.sigma
         return y
 
-    def sample(self, n):
+    def sample(self, n, std=1):
         z = torch.randn((n, self.get_latent_size())).to(device)
-        return self.forward(z)
+        return self.forward(z*std)
 
     def get_latent_size(self):
         return self.latent_size
