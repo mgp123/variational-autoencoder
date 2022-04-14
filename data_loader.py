@@ -2,11 +2,15 @@ from typing import Tuple
 from torchvision import datasets
 from torchvision.transforms import transforms
 from torch.utils import data
+from os.path import exists
 
 batch_size = 256
 
 
 def get_data_loaders() -> Tuple[data.DataLoader, data.DataLoader]:
+    if not exists("dataset"):
+        raise Exception("No dataset found. You need to put your directory with 128x128 images inside the dataset directory")
+
     dataset = datasets.ImageFolder("dataset", transforms.ToTensor())
     test_set_size = 4
     test_set, train_set = data.random_split(

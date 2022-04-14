@@ -1,6 +1,7 @@
 import torch
 import torchvision
 from tqdm import tqdm
+import os
 
 from data_loader import get_data_loaders, batch_size
 from model import Encoder, Decoder
@@ -8,6 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    os.makedirs("weights", exist_ok=True)
+
     data_loader_train, data_loader_test = get_data_loaders()
 
     encoder = Encoder()
