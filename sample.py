@@ -15,6 +15,7 @@ std = float(sys.argv[2])
 with torch.no_grad():
     images = decoder.sample(n,std)
     images = images.to("cpu")
+
     grid_img = torchvision.utils.make_grid(images, nrow=4)
     plt.imshow(grid_img.permute(1, 2, 0))
     plt.axis('off')
