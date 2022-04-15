@@ -8,7 +8,7 @@ The architecture looks like this:
 
 ### Training
 
-    python3 train
+    python3 train.py
 
 (you also need a couple of libraries)
 
@@ -16,7 +16,7 @@ It should take around 6 hours of training depending on the GPU.
 
 ### Sampling 
 
-    python3 train <n> <std>
+    python3 sample.py <n> <std>
 
 where ```n``` is the number of samples and ```std``` a number between 0 and 1 that is going to multiply the latent variable during sampling. 
 
