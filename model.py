@@ -88,9 +88,6 @@ class Decoder(nn.Module):
         self.weights_file = weights_file
         self.latent_size = 1024
 
-        # 0.05 seems to be a good value for sigma
-        self.sigma = 0.02
-
         self.model = nn.Sequential(
             torch.nn.Linear(self.latent_size, 4096),
             nn.LeakyReLU(),
@@ -134,8 +131,6 @@ class Decoder(nn.Module):
 
     def forward(self, z):
         y = self.model(z)
-        # noise = torch.randn(y.shape).to(device)
-        # y += noise * self.sigma
         return y
 
     def sample(self, n, std=1):
