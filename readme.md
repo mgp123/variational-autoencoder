@@ -4,7 +4,9 @@ A very basic variational autoencoder for 128x128 images.
 
 The architecture looks like this:
 
-![architecture](images/architecture.svg)
+<p align="center">
+    <img src="images/architecture.svg">
+</p>
 
 ### Training
 
@@ -27,16 +29,22 @@ A small ```std``` leads to samples closer to the mean and therefore more "conser
 Here are some samples with different ```std```s trained on FFHQ.
 
 
-```std```=1
+- ```std```=1
 
-![std1.0](images/samples_std_1.0.png)
+<p align="center">
+    <img src="images/samples_std_1.0.png">
+</p>
+
+- ```std```=0.85
+
+<p align="center">
+    <img src="images/samples_std_0.85.png">
+</p>
 
 
-```std```=0.85
 
-![std0.85](images/samples_std_0.85.png)
+- ```std```=0.4
 
-
-```std```=0.4
-
-![std0.4](images/samples_std_0.4.png)
+<p align="center">
+    <img src="images/samples_std_0.4.png">
+</p>
